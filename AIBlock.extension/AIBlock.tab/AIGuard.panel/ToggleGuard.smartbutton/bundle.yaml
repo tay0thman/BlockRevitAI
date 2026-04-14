@@ -1,0 +1,8 @@
+title:
+  en_us: AI Guard
+tooltip:
+  en_us: >
+    Toggle the Autodesk Assistant guard.
+    Requires BIM Manager password.
+author: Tay Othman
+highlight: new

@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+
+# pyRevit
+*.pyc
+*.dll
+*.pdb
+
+# IDE
+.vscode/
+.idea/
+*.suo
+*.user
+*.sln.docstates
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Config (contains password hashes — don't commit user configs)
+config.json
+
+# Logs
+*.log
+*.csv
