@@ -9,6 +9,10 @@ context and execute ai-fired.py.
 
 Performance: One set-membership check per committed transaction.
 """
+from pyrevit import HOST_APP
+if HOST_APP.version < 2027:
+    import sys
+    sys.exit()
 import os
 from pyrevit import EXEC_PARAMS
 

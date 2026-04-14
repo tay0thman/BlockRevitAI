@@ -12,6 +12,10 @@ Behavior:
     - Correct password → allow + log
     - Wrong password or cancel → block (args.Cancel = True)
 """
+from pyrevit import HOST_APP
+if HOST_APP.version < 2027:
+    import sys
+    sys.exit()
 import os
 from pyrevit import EXEC_PARAMS
 from pyrevit import forms

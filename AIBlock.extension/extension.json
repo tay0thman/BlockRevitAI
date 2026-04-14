@@ -1,0 +1,16 @@
+{
+  "builtin": "False",
+  "default_enabled": "True",
+  "type": "extension",
+  "rocket_mode_compatible": "True",
+  "name": "AIBlock",
+  "description": "Intercept and control Autodesk Assistant (AI) transactions in Revit 2027",
+  "author": "Tay Othman",
+  "author_profile": "https://github.com/tay0thman",
+  "url": "https://github.com/tay0thman/BlockRevitAI.git",
+  "website": "https://github.com/tay0thman/BlockRevitAI",
+  "image": "",
+  "min_revit_ver": 2027,
+  "templates": {},
+  "dependencies": []
+}

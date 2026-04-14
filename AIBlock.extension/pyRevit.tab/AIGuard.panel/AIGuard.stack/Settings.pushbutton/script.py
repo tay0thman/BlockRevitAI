@@ -17,7 +17,7 @@ Requires BIM Manager password.
 - Change override password
 - Set network log path
 """
-
+__min_revit_ver__ = 2027
 import os
 from pyrevit import forms
 from pyrevit import script
