@@ -1,0 +1,6 @@
+title:
+  en_us: AIGuard
+layout:
+  - ToggleGuard
+  - Settings
+  - About

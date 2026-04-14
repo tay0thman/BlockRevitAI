@@ -5,4 +5,4 @@ tooltip:
     Toggle the Autodesk Assistant guard.
     Requires BIM Manager password.
 author: Tay Othman
-highlight: new
+context: zero-doc

@@ -5,3 +5,4 @@ tooltip:
     Configure the AI Assistant guard.
     Manage authorized users, change password, set log path.
 author: Tay Othman
+context: zero-doc
