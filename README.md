@@ -1,3 +1,8 @@
+
+<img width="1092" height="699" alt="image" src="https://github.com/user-attachments/assets/764aee60-2c36-4f31-8802-d8635749ae19" />
+
+
+
 # BlockRevitAI
 
 A pyRevit extension that gives BIM Managers control over the **Autodesk Assistant** (built-in AI) in Revit 2027.
