@@ -75,7 +75,7 @@ def _read_json(path):
     try:
         with open(path, "r") as f:
             return json.load(f)
-    except (IOError, OSError, ValueError, json.JSONDecodeError):
+    except (IOError, OSError, ValueError):
         return None
 
 
