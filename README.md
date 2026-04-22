@@ -14,12 +14,21 @@ BlockRevitAI intercepts AI-driven model changes and lets your team decide what s
 ## What It Does
 
 ### 🔒 Panel Blocker (`command-before-exec`)
-Blocks the Autodesk Assistant panel from opening unless the user provides a BIM Manager password or is on an authorized user list. Zero performance overhead — fires only on button click.
+Blocks the Autodesk Assistant panel from opening unless the user provides a BIM Manager password or is on an authorized user list. Zero performance overhead — fires only on button click. On successful authorisation, the transaction guard is armed for the session.
 
-### 🔍 AI Transaction Monitor (`ai-fired` hook)
-When the Assistant commits a model-modifying transaction, a confirmation dialog appears summarizing exactly what changed: element counts, categories affected, and the MCP tool that triggered it. The user can **Accept** or **Reject** (auto-undo).
+### 🛑 Atomic Transaction Guard (`IUpdater` + `FailureMessage`)
+The core of the extension. An `IUpdater` registered at Revit startup runs *inside* every transaction's commit phase. When the guard is armed and a managed stack walk identifies the call as originating from the Autodesk Assistant, the updater posts an Error-severity `FailureMessage`. Revit's own failure processor rolls the transaction back atomically — the commit never completes, and nothing touches the undo stack.
 
-This hook fires *only* on confirmed AI transactions — not on manual edits. Detection is dictionary-based MCP tool transaction name matching — no regex heuristics, no false positives.
+Why this beats the earlier `DocumentChanged` + `PostCommand(Undo)` approach:
+
+- **Atomic** — the transaction never commits, so there is nothing to undo. No risk of cascading into the user's prior edits.
+- **Doesn't depend on Undo** — `PostCommand(Undo)` is asynchronous, can undo more than intended in workshared models, and was unreliable when other hooks intervened between commit and the posted Undo.
+- **Origin-aware** — only blocks transactions that have an `Autodesk.Assistant.*` or `ModelContextProtocol.*` assembly on the managed call stack. Manual edits made while the guard is armed still commit.
+
+After a rollback, the blocked transaction is summarised in a modal dialog shown on the next `Idling` event (dialog is never raised from inside `Execute`). The user can **Allow next** (grants a one-shot pass; re-issue the prompt to actually apply the change) or **Keep blocked** (rollback stands).
+
+### 🔎 Anomaly Logger (`doc-changed` hook)
+Secondary safety net. If an AI-named transaction ever commits despite being armed — meaning the updater or the stack-walk missed it — this hook logs an `AI_UPDATER_BYPASS` event so BIM managers can triage. No auto-undo is attempted.
 
 ### ⚡ How Detection Works
 
@@ -32,7 +41,7 @@ The Autodesk Assistant operates via `IExternalEventHandler` and creates standard
 'Rvt.Attr.ToolName: batchModifyParameter
 ```
 
-The Assistant converts camelCase MCP tool names to Title Case transaction names (e.g., `batchModifyParameter` → `"Batch Modify Parameter"`). BlockRevitAI matches against an explicit dictionary of known tool names in a single lookup per committed transaction.
+The updater identifies AI-origin transactions by walking the managed call stack for `Autodesk.Assistant.*` / `ModelContextProtocol.*` frames — this works regardless of transaction name and does not require maintaining a tool dictionary. The existing MCP transaction-name dictionary (`lib/aiblock/mcp_patterns.py`) is now used only by the anomaly logger.
 
 ## Assistant Identity (Revit 2027)
 
@@ -63,14 +72,16 @@ The Assistant converts camelCase MCP tool names to Title Case transaction names 
 ```
 AIBlock.extension/
   extension.json                                            # Extension metadata, min Revit 2027
+  startup.py                                                # Registers FailureDefinition + IUpdater + Idling handler at Revit init
   hooks/
-    doc-changed.py                                          # Bridge: thin filter, exits immediately for non-AI transactions
-    ai-fired.py                                             # Confirmation dialog with Accept/Reject (auto-undo)
-    command-before-exec[ID_TOGGLE_AUTODESK_ASSISTANT].py    # Panel blocker with password gate
+    doc-changed.py                                          # Anomaly logger — flags AI transactions that bypass the updater
+    command-before-exec[ID_TOGGLE_AUTODESK_ASSISTANT].py    # Panel blocker with password gate; arms the guard on authorised open
   lib/
     aiblock/
       __init__.py               # Config, auth, password hashing, network config, logging
-      mcp_patterns.py           # MCP transaction fingerprint dictionary
+      mcp_patterns.py           # MCP transaction fingerprint dictionary (anomaly logger only)
+      state.py                  # Armed flag, one-shot pass grant, pending-decision queue
+      updater.py                # IUpdater, FailureDefinition, stack-walk AI detection, Idling dialog
   pyRevit.tab/
     AIGuard.panel/
       AIGuard.stack/
@@ -174,10 +185,11 @@ As Autodesk expands the Assistant's capabilities, new MCP tool names will appear
 
 ## Known Limitations
 
-- **pyRevit .NET 10 compatibility**: pyRevit hooks may have issues on Revit 2027's .NET 10 runtime. Test before deploying to production. If hooks don't fire, the fallback is removing the Assistant's `.addin` manifest.
-- **Post-commit undo**: The `ai-fired` hook shows the confirmation dialog *after* the transaction commits. On reject, it posts an Undo command. The transaction briefly exists before being undone. In workshared models, do not sync between the AI edit and the undo.
-- **Public MCP Server**: The optional Public MCP Server add-on (for external AI tools like Claude Desktop) uses a separate `.addin` and command ID. It is not blocked by default.
-- **Minimum Revit version**: Hooks include a runtime version check and exit immediately on Revit 2026 and earlier. The `ID_TOGGLE_AUTODESK_ASSISTANT` command does not exist in older versions.
+- **pyRevit .NET 10 compatibility**: pyRevit hooks and IronPython IUpdater subclassing may have issues on Revit 2027's .NET 10 runtime. Test before deploying to production. If `startup.py` fails to register the updater, the anomaly logger still records AI transactions and the fallback is removing the Assistant's `.addin` manifest.
+- **Armed-mode scope**: While the guard is armed, only transactions with `Autodesk.Assistant.*` or `ModelContextProtocol.*` on the managed call stack are rolled back. Manual edits pass through. If a future AI tool is hosted from a different assembly name, it will bypass the stack-walk check — update `AI_ASSEMBLY_MARKERS` in `lib/aiblock/updater.py` when new hosts appear.
+- **Public MCP Server**: The optional Public MCP Server add-on (for external AI tools like Claude Desktop) uses a separate `.addin` and command ID. The panel blocker does not block its button, but the updater *will* roll back its transactions because its assembly name includes `ModelContextProtocol`.
+- **FailureDefinition registration window**: `FailureDefinition.CreateFailureDefinition` is only legal during `ApplicationInitialized`. `startup.py` runs inside that window; manual Reloads re-register safely. If Revit rejects the registration (already-registered GUID from a stale load), the existing definition stays valid and the updater keeps working.
+- **Minimum Revit version**: `startup.py` and all hooks exit immediately on Revit 2026 and earlier. The `ID_TOGGLE_AUTODESK_ASSISTANT` command and the Assistant addin do not exist in older versions.
 
 ## Contributing
 
