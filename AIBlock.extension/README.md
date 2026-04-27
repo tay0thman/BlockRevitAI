@@ -327,7 +327,7 @@ the new caption.
    dialog. In Mode 3 the dialog offers "Allow next" (grants a
    one-pass bypass). In Modes 1 and 2 the dialog is informational
    only — there is no per-user override.
-4. **Shutdown hook: hooks/app-shutdown.py** — unregisters the updater,
+4. **Shutdown hook: hooks/app-closing.py** — unregisters the updater,
    the Idling subscriber, and the FailuresProcessing subscriber on
    Revit close so state is clean for the next session.
 
@@ -363,7 +363,7 @@ AIBlock.extension/
 ├── extension.json                     (pyRevit metadata)
 ├── startup.py                         (register updater at load)
 ├── hooks/
-│   ├── app-shutdown.py                (clean teardown on Revit close)
+│   ├── app-closing.py                 (clean teardown on Revit close)
 │   ├── command-before-exec[ID_TOGGLE_AUTODESK_ASSISTANT].py
 │   └── doc-changed.py                 (post-commit safety-net logger)
 ├── lib/aiblock/

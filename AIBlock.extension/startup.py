@@ -8,12 +8,21 @@ only place where FailureDefinition.CreateFailureDefinition is
 legal, so registration of the rollback-failure definition and the
 IUpdater happens here.
 
-Fails fast and silent on Revit < 2027 — the Assistant only ships
-on 2027+ and the updater targets that surface.
+No-ops on Revit < 2027 — the Assistant only ships on 2027+ and the
+updater targets that surface. Version compare is wrapped in int()
+because HOST_APP.version forwards Application.VersionNumber, which
+the Revit API returns as a string like "2026"; comparing a string
+to the int 2027 silently misbehaves on Python 2 and TypeErrors on
+Python 3.
 """
 from pyrevit import HOST_APP
 
-if HOST_APP.version < 2027:
+try:
+    _revit_version_int = int(HOST_APP.version)
+except (TypeError, ValueError):
+    _revit_version_int = 0
+
+if _revit_version_int < 2027:
     import sys
     sys.exit()
 
