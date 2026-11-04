@@ -25,60 +25,69 @@ commit was expected given current policy:
 Performance: one set-membership check per committed transaction.
 """
 from pyrevit import HOST_APP
-if HOST_APP.version < 2027:
-    import sys
-    sys.exit()
 
-import os
-from pyrevit import EXEC_PARAMS
 
-from aiblock import get_mode, log_event, should_block_ai_writes
-from aiblock.mcp_patterns import is_likely_mcp_transaction
+def _revit_is_2027_plus():
+    """True only on Revit 2027+. Never raises (version may be str)."""
+    try:
+        return int(HOST_APP.version) >= 2027
+    except (TypeError, ValueError):
+        return False
 
-args = EXEC_PARAMS.event_args
-if args is None:
-    import sys
-    sys.exit()
 
-doc = args.GetDocument()
-if doc is None or doc.IsFamilyDocument:
-    import sys
-    sys.exit()
+def _main():
+    import os
+    from pyrevit import EXEC_PARAMS
 
-tx_names = list(args.GetTransactionNames())
-leaked_tools = []
-for tx_name in tx_names:
-    matched, tool_name = is_likely_mcp_transaction(tx_name)
-    if matched:
-        leaked_tools.append((tx_name, tool_name))
+    from aiblock import get_mode, log_event, should_block_ai_writes
+    from aiblock.mcp_patterns import is_likely_mcp_transaction
 
-if not leaked_tools:
-    import sys
-    sys.exit()
+    args = EXEC_PARAMS.event_args
+    if args is None:
+        return
 
-username = os.environ.get("USERNAME", "unknown")
-added = len(list(args.GetAddedElementIds()))
-modified = len(list(args.GetModifiedElementIds()))
-deleted = len(list(args.GetDeletedElementIds()))
+    doc = args.GetDocument()
+    if doc is None or doc.IsFamilyDocument:
+        return
 
-# Distinguish "this should have been blocked" from "this was allowed
-# by policy". Same underlying signal, very different operational
-# meaning: the first is a bug report, the second is audit-trail.
-event_tag = (
-    "AI_UPDATER_BYPASS"
-    if should_block_ai_writes()
-    else "AI_COMMITTED_ALLOWED"
-)
+    tx_names = list(args.GetTransactionNames())
+    leaked_tools = []
+    for tx_name in tx_names:
+        matched, tool_name = is_likely_mcp_transaction(tx_name)
+        if matched:
+            leaked_tools.append((tx_name, tool_name))
 
-log_event(
-    event_tag,
-    username,
-    "mode={} tx={} tools={} added={} modified={} deleted={}".format(
-        get_mode(),
-        "|".join(t[0] for t in leaked_tools),
-        "|".join(t[1] for t in leaked_tools),
-        added,
-        modified,
-        deleted,
-    ),
-)
+    if not leaked_tools:
+        return
+
+    username = os.environ.get("USERNAME", "unknown")
+    added = len(list(args.GetAddedElementIds()))
+    modified = len(list(args.GetModifiedElementIds()))
+    deleted = len(list(args.GetDeletedElementIds()))
+
+    # Distinguish "this should have been blocked" from "this was allowed
+    # by policy". Same underlying signal, very different operational
+    # meaning: the first is a bug report, the second is audit-trail.
+    event_tag = (
+        "AI_UPDATER_BYPASS"
+        if should_block_ai_writes()
+        else "AI_COMMITTED_ALLOWED"
+    )
+
+    log_event(
+        event_tag,
+        username,
+        "mode={} tx={} tools={} added={} modified={} deleted={}".format(
+            get_mode(),
+            "|".join(t[0] for t in leaked_tools),
+            "|".join(t[1] for t in leaked_tools),
+            added,
+            modified,
+            deleted,
+        ),
+    )
+
+
+# Positive conditional instead of sys.exit() — see app-closing.py.
+if _revit_is_2027_plus():
+    _main()
