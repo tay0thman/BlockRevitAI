@@ -118,7 +118,6 @@ def _main():
                     "Access denied. The Autodesk Assistant has been blocked.\n\n"
                     "Contact your BIM Manager if you need access.",
                     title="AIBlock",
-                    exitscript=True,
                 )
 
     else:
