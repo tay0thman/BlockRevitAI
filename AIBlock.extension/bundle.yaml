@@ -1,0 +1,6 @@
+# Extension-level version gate (pyRevit 7+ loader).
+# On Revit < 2027 pyRevit skips this whole extension: no startup.py, no hooks,
+# no ribbon buttons, no messages. The Autodesk Assistant only exists on 2027+.
+# The version checks inside startup.py and the hooks remain as a fallback for
+# older pyRevit loaders that ignore this file.
+min_revit_version: '2027'
